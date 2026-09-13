@@ -1,0 +1,111 @@
+# ====================================================================
+# 内网客户端 Nginx 反代配置（包含企业级 6 大核心协议补丁）
+# 适用平台: Windows (C:\jira-tunnel\nginx\conf\nginx.conf) 或 Linux
+# 说明: 本地监听 8080，frpc 转发 8080，上游直连企业内网 Jira
+# ====================================================================
+
+worker_processes 1;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+    sendfile        on;
+    keepalive_timeout 65;
+
+    # -------------------------------------------------------------
+    # [Patch 3] Origin / Referer 协议改写
+    # 将外部发起的 HTTP 请求头自动伪装为内网真实 HTTPS 域名
+    # 彻底解决 Jira 自带的严格 XSRF 防御（防止 POST/登录报"出错了"）
+    # 请将 jira.internal.company.com 替换为实际内网 Jira 域名
+    # -------------------------------------------------------------
+    map $http_origin $origin_rewrite {
+        default $http_origin;
+        "~^http://" "https://jira.internal.company.com";
+    }
+    map $http_referer $referer_rewrite {
+        default $http_referer;
+        "~^http://" "https://jira.internal.company.com/";
+    }
+
+    # -------------------------------------------------------------
+    # [Patch 5] Upstream 连接池与 Keepalive 复用
+    # 建立 32 个持久长连接，避免频繁发起 TLS 握手触发企业 WAF 的并发限流策略
+    # -------------------------------------------------------------
+    upstream jira_upstream {
+        server jira.internal.company.com:443;
+        keepalive 32;
+    }
+
+    server {
+        listen       8080;
+        server_name  localhost;
+        client_max_body_size 100m;
+
+        # ---------------------------------------------------------
+        # [Patch 6] /rest/ API 专用路由（AI 调度与脚本通道）
+        # 机制：仅当 Authorization 头是以 Bearer 开头时才透传给 Jira（Jira PAT 令牌）
+        # 普通 Basic Auth 认证头被清空，避免干扰 API 访问
+        # ---------------------------------------------------------
+        location /rest/ {
+            proxy_ssl_server_name on;
+            proxy_ssl_name jira.internal.company.com;
+            proxy_set_header Host jira.internal.company.com;
+
+            set $jira_auth "";
+            if ($http_authorization ~* "^Bearer ") {
+                set $jira_auth $http_authorization;
+            }
+            proxy_set_header Authorization $jira_auth;
+
+            proxy_set_header Origin $origin_rewrite;
+            proxy_set_header Referer $referer_rewrite;
+            proxy_cookie_flags ~ nosecure samesite=lax;
+
+            proxy_pass https://jira_upstream;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+            proxy_read_timeout 300s;
+            proxy_send_timeout 300s;
+            proxy_buffering off;
+        }
+
+        # ---------------------------------------------------------
+        # 默认 Web 路由（供浏览器访问）
+        # ---------------------------------------------------------
+        location / {
+            # [Patch 1] SNI 扩展与 Host 改写（过企业 WAF 域名检查）
+            proxy_ssl_server_name on;
+            proxy_ssl_name jira.internal.company.com;
+            proxy_set_header Host jira.internal.company.com;
+
+            # [Patch 2] 彻底剥离外部传入的 Basic Authorization 头
+            # 防止 Jira 将云端反代的 Basic Auth 密码误当成 Jira 账户密码导致全员 401
+            proxy_set_header Authorization "";
+
+            # [Patch 3] Origin / Referer 改写
+            proxy_set_header Origin $origin_rewrite;
+            proxy_set_header Referer $referer_rewrite;
+
+            # [Patch 4] 剥除 Set-Cookie 里的 Secure 标记
+            # 允许在外部纯 HTTP 访问时，现代浏览器仍能留存 JSESSIONID 会话凭证
+            proxy_cookie_flags ~ nosecure samesite=lax;
+
+            proxy_pass https://jira_upstream;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+            proxy_read_timeout 300s;
+            proxy_send_timeout 300s;
+            proxy_buffering off;
+        }
+    }
+}

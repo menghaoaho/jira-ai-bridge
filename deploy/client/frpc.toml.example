@@ -1,0 +1,26 @@
+# ==========================================
+# 内网客户端 frpc 配置文件示例 (frp v0.70+)
+# 放置路径: C:\jira-tunnel\frpc\frpc.toml 或 /etc/frp/frpc.toml
+# ==========================================
+
+serverAddr = "YOUR_CLOUD_VPS_IP"
+serverPort = 7000
+auth.method = "token"
+auth.token = "YOUR_SUPER_STRONG_FRP_TOKEN"
+
+transport.tls.enable = true
+log.to = "./frpc.log"
+log.level = "info"
+
+[[proxies]]
+# 代理名称需保持唯一（建议附带机器名或工号后缀，如 jira-shift-PC01）
+name = "jira-shift-node"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 8080      # 对应内网本地 6 补丁 Nginx 反代端口
+remotePort = 8082     # 映射到公网 VPS 本地的 8082 端口
+
+# 核心特性：负载均衡组（多台同事电脑开机共存，任意一台在线隧道即保持畅通）
+[proxies.loadBalancer]
+group = "jira-cluster"
+groupKey = "YOUR_GROUP_SECRET_KEY"

@@ -1,0 +1,18 @@
+# ==========================================
+# 云端 frps 配置文件示例 (frp v0.70+)
+# 放置路径: /etc/frp/frps.toml
+# ==========================================
+
+bindPort = 7000
+auth.method = "token"
+auth.token = "YOUR_SUPER_STRONG_FRP_TOKEN"  # 请替换为强随机字符串
+
+# 运行日志配置
+log.to = "/var/log/frps.log"
+log.level = "info"
+log.maxDays = 7
+
+# 可选：限制允许映射的端口范围，提升安全性
+# allowPorts = [
+#   { start = 8082, end = 8082 }
+# ]

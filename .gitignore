@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# frp / Nginx logs & runtime
+*.log
+logs/
+temp/
+*.pid
+
+# Credentials and local overrides
+*.local.toml
+*.env
+.jira_htpasswd

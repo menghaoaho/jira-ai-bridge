@@ -1,0 +1,64 @@
+# ====================================================================
+# 云端 Nginx 接入层配置 (Web 入口 + AI API 独立网关)
+# 放置路径: /etc/nginx/sites-available/jira-gateway
+# 启用: ln -s /etc/nginx/sites-available/jira-gateway /etc/nginx/sites-enabled/
+# ====================================================================
+
+# --------------------------------------------------
+# 1. Web 浏览器访问入口 (8081)
+# 具备 Basic Auth 防爆破，防止外部扫描器直接探测 Jira
+# 生成密码文件: htpasswd -bc /etc/nginx/.jira_htpasswd admin <StrongPassword>
+# --------------------------------------------------
+server {
+    listen 8081;
+    server_name _;
+
+    auth_basic "Jira Remote Access Verification";
+    auth_basic_user_file /etc/nginx/.jira_htpasswd;
+
+    client_max_body_size 100m;
+
+    location / {
+        # 转发到本地 frps 接收到的隧道端口 (8082)
+        proxy_pass http://127.0.0.1:8082;
+        proxy_http_version 1.1;
+
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}
+
+# --------------------------------------------------
+# 2. AI Agent / REST API 调度专用网关 (8083)
+# 门卫拦截: 必须携带指定的 X-Gate-Key Header，且仅允许访问 /rest/
+# --------------------------------------------------
+server {
+    listen 8083;
+    server_name _;
+
+    client_max_body_size 50m;
+
+    # 根路径及非 /rest/ 请求直接拒绝
+    location / {
+        return 403 "API Gateway: Access Denied";
+    }
+
+    # 仅放行 Jira REST API
+    location /rest/ {
+        # 门卫密钥校验：防止未授权客户端滥用或探测
+        if ($http_x_gate_key != "YOUR_AI_AGENT_GATE_KEY_HERE") {
+            return 403 "API Gateway: Invalid Gate Key\n";
+        }
+
+        # 转发到隧道端
+        proxy_pass http://127.0.0.1:8082;
+        proxy_http_version 1.1;
+
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 180s;
+        proxy_send_timeout 180s;
+    }
+}
