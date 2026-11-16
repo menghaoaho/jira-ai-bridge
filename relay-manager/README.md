@@ -2,7 +2,7 @@
 
 当前源码版本 **1.2.0**，适用于 Windows 10/11 Intel/AMD 64位电脑。
 
-**上线状态：正式云端尚未部署，当前不能直接给同事签发可用安装邀请。** 1.2 已加入中文安装窗口、独立使用入口和 Agent 安装指令；测试进展见[验证记录](VALIDATION.md)。公开仓库中的 `203.0.113.10` 和 `jira.example.internal` 为示例地址。
+**上线状态：参考实例已完成云端部署，已签发首台实操邀请，可以开始真实电脑安装验证。** 1.2 已加入中文安装窗口、独立使用入口和 Agent 安装指令；测试进展见[验证记录](VALIDATION.md)。公开仓库中的 `203.0.113.10` 和 `jira.example.internal` 为示例地址。
 
 ## 同事和领导怎么使用
 
@@ -31,7 +31,7 @@ Agent 走同一套自检、文件校验和单次授权流程，等待真实结�
 
 [管理控制台交互演示](https://menghaoaho.github.io/jira-ai-bridge/) · [普通使用者入口演示](https://menghaoaho.github.io/jira-ai-bridge/welcome.html) · [安装流程演示](https://menghaoaho.github.io/jira-ai-bridge/install.html#demo)
 
-演示使用模拟数据，不提供真实安装授权。已有1.1组件在[历史发布页](https://github.com/menghaoaho/jira-ai-bridge/releases/tag/relay-v1.1.0-preview.1)，1.2的正式可用入口以实际部署和验收结果为准。
+演示使用模拟数据，不提供真实安装授权。[下载1.2组件和部署模板](https://github.com/menghaoaho/jira-ai-bridge/releases/tag/relay-v1.2.0)。公司使用者请打开管理员私下发来的正式邀请，无需下载服务器包。
 
 ## 管理员能控制什么
 

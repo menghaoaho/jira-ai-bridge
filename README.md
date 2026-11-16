@@ -4,7 +4,7 @@
 
 1.2.0 将公司 Windows 电脑接入流程做成中文一键安装窗口：自动检查、安装组件、设置后台运行，并等待云端确认。管理员用网页控制台创建邀请、查看设备和单独停用；同事也可以把专属指令交给电脑上的 Agent 完成安装。只查看 Jira 和工作台的同事或领导直接从使用入口进入，无需安装。
 
-**正式云端接入尚未上线，真实公司 Windows 安装验收待完成。** 公开仓库分发源码与示例组件，实际安装需要管理员在正式服务中创建专属邀请。
+**参考实例已完成云端部署和公网回归，已可开始公司 Windows 首次安装验证；真实电脑重启、双机和卸载验收仍待完成。** 公开仓库分发源码与示例组件，实际安装需要管理员在正式服务中创建专属邀请。
 
 [控制台交互演示](https://menghaoaho.github.io/jira-ai-bridge/) · [使用入口演示](https://menghaoaho.github.io/jira-ai-bridge/welcome.html) · [安装流程演示](https://menghaoaho.github.io/jira-ai-bridge/install.html#demo)
 
