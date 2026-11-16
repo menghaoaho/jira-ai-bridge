@@ -1,0 +1,6 @@
+{
+  "/etc/caddy/Caddyfile": "REPLACE_WITH_REVIEWED_SHA256",
+  "/etc/nginx/sites-available/jira-form-upstream": "REPLACE_WITH_REVIEWED_SHA256",
+  "/etc/nginx/sites-available/jira-api-https": "REPLACE_WITH_REVIEWED_SHA256",
+  "/etc/nginx/sites-available/jira": "REPLACE_WITH_REVIEWED_SHA256"
+}

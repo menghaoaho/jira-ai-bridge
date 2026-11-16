@@ -1,0 +1,17 @@
+[Unit]
+Description=Route authorized healthy Jira relay computers
+After=jira-relay.service nginx.service
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/jira-relay/router.py
+Restart=on-failure
+RestartSec=3
+UMask=0022
+PrivateTmp=yes
+ProtectHome=yes
+MemoryMax=64M
+TasksMax=16
+Environment=PYTHONDONTWRITEBYTECODE=1
+
+[Install]
+WantedBy=multi-user.target

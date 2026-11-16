@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>转发电脑管理</title><link rel="stylesheet" href="/relay-admin/style.css"><script defer src="/relay-admin/app.js"></script></head>
+<body><main>
+<nav><a href="/">← 工作台</a><span id="account">管理员验证中</span></nav>
+<header><p class="eyebrow">JIRA · 连接管理</p><h1>转发电脑</h1><p>把安装命令发给同事，接入与停用由你管理。</p></header>
+<p id="notice" role="status" aria-live="polite"></p>
+<section class="create"><div><h2>新增一台电脑</h2><p>同事在公司网络中打开 PowerShell，粘贴命令并确认系统授权即可。</p></div><form id="create"><label>设备备注<input name="label" required maxlength="80" placeholder="例如：王同事 · 晚班电脑" autocomplete="off"></label><label>命令有效期<select name="hours"><option value="24">24 小时</option><option value="72">3 天</option><option value="168">7 天</option></select></label><button type="submit">生成安装命令</button></form></section>
+<section id="command-result" hidden><div class="section-head"><h2>专属安装命令</h2><button class="quiet" id="clear-command">收起并清除</button></div><p id="command-caption"></p><textarea id="command" readonly aria-label="专属安装命令" spellcheck="false"></textarea><div class="actions"><button id="copy-command">复制完整命令</button><span>仅能激活一台电脑，请私下发送给对应同事。</span></div></section>
+<section><div class="section-head"><h2>已登记电脑 <span id="device-count" class="count">0</span></h2><button class="quiet" id="refresh">刷新状态</button></div><p class="hint">“正常转发”表示云端已单独验证这台电脑能够访问公司 Jira。电脑睡眠、关机或离开公司网络后会退出转发。</p><div id="devices" class="devices"></div><p id="updated" class="hint"></p></section>
+<section><h2>最近生成的命令</h2><div class="table-wrap"><table><thead><tr><th>设备备注</th><th>状态</th><th>有效期至</th><th>操作</th></tr></thead><tbody id="commands"></tbody></table></div></section>
+<footer>停用只影响该电脑提供的转发通道。外网 Jira 的登录权限沿用现有设置。</footer>
+</main><dialog id="confirm"><form method="dialog"><h2>停用这台转发电脑？</h2><p id="confirm-text"></p><p>这台电脑将停止参与转发，恢复时需要重新安装授权。</p><div class="actions"><button value="cancel" class="quiet">取消</button><button value="disable" class="danger">确认停用</button></div></form></dialog></body></html>

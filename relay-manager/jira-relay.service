@@ -1,0 +1,24 @@
+[Unit]
+Description=Jira relay enrollment and device authorization
+After=network.target jira-workbench-cloud.service
+
+[Service]
+User=jira-relay
+Group=jira-relay
+WorkingDirectory=/opt/jira-relay
+ExecStart=/usr/bin/python3 /opt/jira-relay/service.py
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/jira-relay
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=220M
+TasksMax=192
+Environment=PYTHONDONTWRITEBYTECODE=1
+
+[Install]
+WantedBy=multi-user.target

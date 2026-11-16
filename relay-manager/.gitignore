@@ -1,0 +1,12 @@
+.cache/
+.venv/
+__pycache__/
+release/
+*.db*
+*.pem
+settings.local.json
+review.local.json
+*.local.json
+*.key
+identity.bin
+*.log

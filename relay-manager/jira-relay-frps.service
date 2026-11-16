@@ -1,0 +1,22 @@
+[Unit]
+Description=Managed Jira relay FRP endpoint (separate from legacy FRP)
+Requires=jira-relay.service
+After=network.target jira-relay.service
+
+[Service]
+User=jira-relay
+Group=jira-relay
+ExecStart=/opt/jira-relay/frps -c /etc/jira-relay/frps.toml
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=180M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

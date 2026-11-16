@@ -1,5 +1,10 @@
 # Jira-AI-Bridge 🚀
 
+> **新增：转发电脑管理与一条命令安装（预览版）**
+> [下载页面](https://github.com/menghaoaho/jira-ai-bridge/releases/tag/relay-v1.0.0-preview.1) · [管理员与同事使用说明](relay-manager/README.md) · [测试记录](relay-manager/VALIDATION.md)
+> 支持限时单台安装授权、Windows自检安装、开机后台运行、多机转发和管理员停用设备。当前为可部署模板，云端上线与真实Windows验收仍待；以下原版部署说明作为历史方案保留。
+
+
 > **企业内网 Jira 外网安全穿透网关与 AI Agent 智能化调度实践指南**  
 > 支持零 VPN 外网流畅访问 Web、多机高可用热备负载均衡、双重门卫安全隔离、AI JQL 轻量投影调度（毫秒级拉取）。
 
