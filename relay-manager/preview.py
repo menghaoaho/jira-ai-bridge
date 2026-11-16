@@ -17,10 +17,12 @@ from service import Application, BoundedServer, Handler, Store, Tokens
 
 class PreviewHandler(Handler):
     def serve(self):
-        self.headers['X-Jira-Relay-Surface'] = 'admin'
-        if self.path == '/relay-admin/':
-            html = (Path(__file__).parent / 'web/index.html').read_text()
-            html = html.replace('<main>', '<main><p role="status">本地交互预览 · 所有设备及安装命令均为模拟数据，不能用于正式安装。</p>')
+        public = self.path.startswith('/relay-start/')
+        self.headers['X-Jira-Relay-Surface'] = 'public' if public else 'admin'
+        if self.path in ('/relay-admin/', '/relay-start/'):
+            file = 'install.html' if public else 'index.html'
+            html = (Path(__file__).parent / 'web' / file).read_text()
+            html = html.replace('data-mode="live"', 'data-mode="demo"')
             return self.reply(200, html.encode(), 'text/html; charset=utf-8')
         return super().serve()
 

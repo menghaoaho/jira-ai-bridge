@@ -1,7 +1,11 @@
 # Jira-AI-Bridge 🚀
 
+**[打开 Jira 连接助手产品演示](https://menghaoaho.github.io/jira-ai-bridge/)** · [同事安装引导](https://menghaoaho.github.io/jira-ai-bridge/install.html#demo)
+
+新增图形控制台：查看电脑状态、创建安装邀请、分享专属链接、筛选和停用设备。同事按三步页面引导操作，默认无需阅读命令或配置文件。网页演示使用模拟数据，正式云端接入仍待上线。
+
 > **新增：转发电脑管理与一条命令安装（预览版）**
-> [下载页面](https://github.com/menghaoaho/jira-ai-bridge/releases/tag/relay-v1.0.0-preview.1) · [管理员与同事使用说明](relay-manager/README.md) · [测试记录](relay-manager/VALIDATION.md)
+> [下载页面](https://github.com/menghaoaho/jira-ai-bridge/releases/tag/relay-v1.1.0-preview.1) · [管理员与同事使用说明](relay-manager/README.md) · [测试记录](relay-manager/VALIDATION.md)
 > 支持限时单台安装授权、Windows自检安装、开机后台运行、多机转发和管理员停用设备。当前为可部署模板，云端上线与真实Windows验收仍待；以下原版部署说明作为历史方案保留。
 
 

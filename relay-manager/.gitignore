@@ -10,3 +10,4 @@ review.local.json
 *.key
 identity.bin
 *.log
+site/

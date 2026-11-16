@@ -131,7 +131,7 @@ try {
     }
     Write-Host '[2/5] 领取这台电脑的安装授权...'
     if ($null -eq $config) {
-        $body = @{code=$EnrollmentToken;device_id=$identity.id;device_secret=$identity.secret;hostname=$env:COMPUTERNAME;version='1.0.0'} | ConvertTo-Json -Compress
+        $body = @{code=$EnrollmentToken;device_id=$identity.id;device_secret=$identity.secret;hostname=$env:COMPUTERNAME;version='1.1.0'} | ConvertTo-Json -Compress
         try { $config = Invoke-RestMethod -Uri ($Origin + '/relay-api/v1/enroll') -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 20 -MaximumRedirection 0 }
         catch {
             $status = 0

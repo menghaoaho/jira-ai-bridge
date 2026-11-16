@@ -1,0 +1,33 @@
+name: Product demo
+on:
+  push:
+    branches: [main]
+    paths: ['relay-manager/web/**', 'relay-manager/build_demo.py', '.github/workflows/product-demo.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: product-pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Export explicitly simulated product
+        run: python3 relay-manager/build_demo.py --output _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish static product demo
+        id: deployment
+        uses: actions/deploy-pages@v4

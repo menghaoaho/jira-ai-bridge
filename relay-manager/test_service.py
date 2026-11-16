@@ -242,6 +242,58 @@ class RelayTests(unittest.TestCase):
         for path in ('/relay-oidc/.well-known/openid-configuration', '/relay-oidc/jwks'):
             self.assertEqual(self.request(server, path, headers={'X-Jira-Relay-Surface': ''})[0], 200)
 
+    def test_invitation_page_is_public_but_device_management_remains_private(self):
+        server = self.server()
+        for path in ('/relay-start/', '/relay-start/install.js', '/relay-start/ui.js', '/relay-start/style.css'):
+            status, raw, _ = self.request(server, path)
+            self.assertEqual(status, 200, path)
+        self.assertEqual(self.request(server, '/relay-admin/api/report')[0], 404)
+        self.assertEqual(self.request(server, '/relay-api/v1/invitation')[0], 404)
+
+    def test_invitation_inspection_does_not_consume_or_disclose_device_credentials(self):
+        server = self.server()
+        invite = self.store.create_code('专属测试邀请', 24, 'owner')
+        path = '/relay-api/v1/invitation'
+        status, raw, _ = self.request(server, path, 'POST', {'code': invite['code']})
+        ready = json.loads(raw)
+        self.assertEqual(status, 200)
+        self.assertEqual(ready['status'], 'ready')
+        self.assertIn('command', ready)
+        self.assertEqual(self.store.report()['commands'][0]['status'], '待安装')
+        _, row, secret = self.enrolled(invite)
+        self.assertEqual(self.request(server, path, 'POST', {'code': invite['code']})[0], 200)
+        used = json.loads(self.request(server, path, 'POST', {'code': invite['code']})[1])
+        self.assertEqual(used['status'], 'used')
+        self.assertNotIn('command', used)
+        for private in (row['id'], secret, row['hostname']):
+            self.assertNotIn(private, json.dumps(used))
+        self.store.disable(row['id'], 'owner')
+        disabled = json.loads(self.request(server, path, 'POST', {'code': invite['code']})[1])
+        self.assertEqual(disabled['connection'], '已停用')
+
+    def test_expired_revoked_and_invalid_invitation_cannot_download_installer(self):
+        server = self.server()
+        path = '/relay-api/v1/invitation'
+        invite = self.store.create_code('过期测试', 24, 'owner')
+        with self.store.connect() as db:
+            db.execute('UPDATE enrollments SET expires=0 WHERE id=?', (invite['id'],))
+        self.assertEqual(self.request(server, path, 'POST', {'code': invite['code']})[0], 403)
+        invite = self.store.create_code('撤销测试', 24, 'owner')
+        self.store.revoke_code(invite['id'], 'owner')
+        self.assertEqual(self.request(server, path, 'POST', {'code': invite['code']})[0], 403)
+        self.assertEqual(self.request(server, path, 'POST', {'code': 'incomplete'})[0], 400)
+        self.assertEqual(self.request(server, path, 'POST', {'code': secrets.token_urlsafe(32)})[0], 404)
+
+    def test_admin_creates_invitation_link_with_fragment_not_query(self):
+        server = self.server()
+        headers = {'X-Jira-Relay-Surface': 'admin', 'Cookie': 'admin=yes',
+                   'Origin': self.app.settings['admin_origin'], 'X-Jira-Relay-Admin': '1'}
+        status, raw, _ = self.request(server, '/relay-admin/api/commands', 'POST', {'label': '专属电脑'}, headers)
+        self.assertEqual(status, 200)
+        share = json.loads(raw)['share_url']
+        self.assertTrue(share.startswith(self.app.settings['origin'] + '/relay-start/#'))
+        self.assertNotIn('?', share)
+
     def test_hook_failure_is_fail_closed(self):
         server = self.server(True)
         status, raw, _ = self.request(server, '/frp-hook?version=0.1.0&op=Login', 'POST', {'content': {'user': secrets.token_hex(16), 'privilege_key': 'invalid'}})

@@ -8,14 +8,14 @@ import tarfile
 ROOT = Path(__file__).resolve().parent
 FILES = ['service.py','auth.py','router.py','deploy.py','README.md','VALIDATION.md',
          'jira-relay.service','jira-relay-frps.service','jira-relay-router.service',
-         'windows/install.ps1','web/index.html','web/app.js','web/style.css','web/login.html',
+         'windows/install.ps1','web/index.html','web/app.js','web/style.css','web/login.html','web/install.html','web/install.js','web/ui.js',
          'release/bundle.zip','release/frps','release/release.json']
 
 
 def main():
     review = 'review.local.json' if (ROOT/'review.local.json').exists() else 'review.example.json'
     files = [*FILES, review]
-    target = ROOT/'release/jira-relay-server-1.0.0.tar.gz'
+    target = ROOT/'release/jira-relay-server-1.1.0.tar.gz'
     with tarfile.open(target,'w:gz') as archive:
         for name in files:
             archive.add(ROOT/name,arcname='jira-relay-release/'+name,recursive=False)
@@ -29,7 +29,7 @@ from pathlib import Path
 import subprocess
 import tarfile
 
-archive = Path('/root/jira-relay-server-1.0.0.tar.gz')
+archive = Path('/root/jira-relay-server-1.1.0.tar.gz')
 expected = '@PACKAGE_SHA@'
 if hashlib.sha256(archive.read_bytes()).hexdigest() != expected:
     raise SystemExit('安装包摘要不一致，未执行安装。')

@@ -31,7 +31,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from auth import admin_identity, NoRedirect
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 ID_RE = re.compile(r'^[0-9a-f]{32}$')
 SECRET_RE = re.compile(r'^[0-9a-f]{64}$')
 CODE_RE = re.compile(r'^[A-Za-z0-9_-]{43}$')
@@ -150,6 +150,29 @@ class Store:
             db.execute('UPDATE enrollments SET consumed_by=? WHERE id=? AND consumed_by IS NULL', (ident, invitation['id']))
             db.execute('INSERT INTO audit VALUES (?,?,?,?)', (now, 'device:' + ident, 'enroll', invitation['id']))
             return dict(db.execute('SELECT * FROM devices WHERE id=?', (ident,)).fetchone())
+
+    def invitation(self, code):
+        """A bearer invitation reveals only its own label and installation state."""
+        if not isinstance(code, str) or not CODE_RE.fullmatch(code):
+            raise APIError(400, '邀请链接不完整，请重新打开管理员发来的链接')
+        with self.connect() as db:
+            row = db.execute('SELECT * FROM enrollments WHERE code_hash=?', (digest(code),)).fetchone()
+            if not row:
+                raise APIError(404, '未找到这份邀请，请向管理员获取新链接')
+            if row['revoked']:
+                raise APIError(403, '这份安装邀请已被撤销，请联系管理员')
+            # An already redeemed link may monitor only its own installation,
+            # even after its redemption window closes. It never returns secrets.
+            if row['consumed_by']:
+                device = db.execute('SELECT * FROM devices WHERE id=?', (row['consumed_by'],)).fetchone()
+                if device is None:
+                    raise APIError(409, '这份邀请已使用，请联系管理员')
+                state = self.public_device(device)
+                return {'label': row['label'], 'expires': row['expires'], 'status': 'used',
+                        'connection': state['status'], 'detail': state['health_reason']}
+            if row['expires'] < time.time():
+                raise APIError(403, '这份安装邀请已过期，请向管理员获取新链接')
+            return {'label': row['label'], 'expires': row['expires'], 'status': 'ready'}
 
     def authenticate(self, ident, secret, enabled=True):
         if not (ID_RE.fullmatch(str(ident)) and SECRET_RE.fullmatch(str(secret))):
@@ -320,6 +343,12 @@ class Application:
         encoded = base64.b64encode(script.encode('utf-16le')).decode()
         return 'powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ' + encoded
 
+    def invitation_result(self, invitation):
+        return {key: value for key, value in {
+            **invitation, 'command': self.command(invitation),
+            'share_url': self.settings['origin'] + '/relay-start/#' + invitation['code']
+        }.items() if key != 'code'}
+
     def hook(self, op, content):
         if not isinstance(content, dict):
             raise APIError(403, 'invalid_request')
@@ -478,6 +507,15 @@ class Handler(BaseHTTPRequestHandler):
         if surface not in ('public', 'internal'):
             raise APIError(404, 'not_found')
         if self.command in ('GET', 'HEAD'):
+            public_assets = {
+                '/relay-start/': ('install.html', 'text/html'),
+                '/relay-start/install.js': ('install.js', 'text/javascript'),
+                '/relay-start/ui.js': ('ui.js', 'text/javascript'),
+                '/relay-start/style.css': ('style.css', 'text/css'),
+            }
+            if path in public_assets:
+                file, ctype = public_assets[path]
+                return self.reply(200, (ROOT / 'web' / file).read_bytes(), ctype + '; charset=utf-8')
             assets = {'/relay-install/install.ps1': (ROOT / 'windows' / 'install.ps1', 'text/plain; charset=utf-8'),
                       '/relay-install/bundle.zip': (None, 'application/zip')}
             if path in assets:
@@ -511,6 +549,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, app.config(self.device()))
             if path == PUBLIC_PREFIX + '/status':
                 return self.reply(200, app.store.public_device(self.device(enabled=False)))
+        if self.command == 'POST' and path == PUBLIC_PREFIX + '/invitation':
+            peer = clean(self.headers.get('X-Jira-Client-IP', 'loopback'), 64)
+            if not app.limiter.take('invitation:' + peer, 90):
+                raise APIError(429, '请求较多，请稍后重试')
+            invitation = self.body()
+            state = app.store.invitation(invitation.get('code'))
+            if state['status'] == 'ready':
+                state['command'] = app.command({'code': invitation['code']})
+            return self.reply(200, state)
         if self.command == 'POST' and path == PUBLIC_PREFIX + '/enroll':
             peer = clean(self.headers.get('X-Jira-Client-IP', 'loopback'), 64)
             if not app.limiter.take('enroll:' + peer):
@@ -542,6 +589,8 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get('Sec-Fetch-Site') in ('same-site', 'cross-site') and not (
                 self.headers.get('Sec-Fetch-Mode') == 'navigate' and path == ADMIN_PREFIX + '/'):
             raise APIError(403, '请直接打开管理员页面')
+        if path == ADMIN_PREFIX + '/login.css' and self.command in ('GET', 'HEAD'):
+            return self.reply(200, (ROOT / 'web' / 'style.css').read_bytes(), 'text/css; charset=utf-8')
         status, user = app.authenticate(self.headers.get('Cookie', ''))
         if status != 200:
             if path == ADMIN_PREFIX + '/' and self.command == 'GET' and status == 401:
@@ -552,6 +601,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, {**app.store.report(), 'admin': clean(user.get('display_name') or user['username'])})
             assets = {ADMIN_PREFIX + '/': ('index.html', 'text/html'),
                       ADMIN_PREFIX + '/app.js': ('app.js', 'text/javascript'),
+                      ADMIN_PREFIX + '/ui.js': ('ui.js', 'text/javascript'),
                       ADMIN_PREFIX + '/style.css': ('style.css', 'text/css')}
             if path in assets:
                 file, ctype = assets[path]
@@ -564,7 +614,7 @@ class Handler(BaseHTTPRequestHandler):
             actor = user['username']
             if path == ADMIN_PREFIX + '/api/commands':
                 invitation = app.store.create_code(data.get('label'), data.get('hours', 24), actor)
-                return self.reply(200, {k: v for k, v in {**invitation, 'command': app.command(invitation)}.items() if k != 'code'})
+                return self.reply(200, app.invitation_result(invitation))
             ident = data.get('id', '')
             if not isinstance(ident, str) or not ID_RE.fullmatch(ident):
                 raise APIError(400, '设备或命令编号无效')
@@ -574,7 +624,7 @@ class Handler(BaseHTTPRequestHandler):
                 app.store.disable(ident, actor)
             elif path == ADMIN_PREFIX + '/api/reauthorize':
                 invitation = app.store.reauthorize(ident, actor)
-                return self.reply(200, {k: v for k, v in {**invitation, 'command': app.command(invitation)}.items() if k != 'code'})
+                return self.reply(200, app.invitation_result(invitation))
             else:
                 raise APIError(404, '未找到操作')
             return self.reply(200, {'ok': True})
