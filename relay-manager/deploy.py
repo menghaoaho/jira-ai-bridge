@@ -30,7 +30,7 @@ CADDY = Path('/etc/caddy/Caddyfile')
 NGINX = [Path('/etc/nginx/sites-available/' + x) for x in ('jira-form-upstream', 'jira-api-https', 'jira')]
 POOL = Path('/etc/nginx/conf.d/jira-relay-pool.conf')
 UNITS = ['jira-relay', 'jira-relay-frps', 'jira-relay-router']
-SOURCE_FILES = ['service.py', 'auth.py', 'router.py', 'windows/install.ps1', 'web/index.html', 'web/app.js', 'web/style.css', 'web/login.html', 'web/install.html', 'web/install.js', 'web/ui.js']
+SOURCE_FILES = ['service.py', 'auth.py', 'router.py', 'windows/install.ps1', 'web/index.html', 'web/app.js', 'web/style.css', 'web/login.html', 'web/install.html', 'web/install.js', 'web/ui.js','web/welcome.html','web/welcome.js']
 
 
 def sha(file):
@@ -59,7 +59,7 @@ def add_caddy_routes(text):
     if text.count(marker) != 1 or '/relay-admin/' in text:
         raise RuntimeError('caddy_public_site_needs_review')
     public = '''
-    @jira_relay_public path /relay-install/install.ps1 /relay-install/bundle.zip /relay-api/v1/enroll /relay-api/v1/config /relay-api/v1/status /relay-api/v1/invitation /relay-start/* /relay-oidc/token /relay-oidc/jwks
+    @jira_relay_public path /relay-install/install.ps1 /relay-install/bundle.zip /relay-api/v1/enroll /relay-api/v1/config /relay-api/v1/status /relay-api/v1/invitation /relay-start/* /relay/* /relay-oidc/token /relay-oidc/jwks
     handle @jira_relay_public {
         reverse_proxy 127.0.0.1:18110 {
             header_up X-Jira-Relay-Surface public

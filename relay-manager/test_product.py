@@ -12,7 +12,7 @@ import build_demo
 class ProductExportTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which('node'), 'Node.js is required for invitation UI regression checks')
     def test_invitation_refresh_and_used_state(self):
-        subprocess.run(['node', '--test', str(Path(__file__).with_name('test_install_ui.cjs'))], check=True)
+        subprocess.run(['node', '--test', str(Path(__file__).with_name('test_install_ui.cjs')), str(Path(__file__).with_name('test_welcome_ui.cjs'))], check=True)
 
     def test_static_export_is_explicit_simulation_and_contains_only_frontend_files(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -20,7 +20,7 @@ class ProductExportTests(unittest.TestCase):
             with patch('sys.argv', ['build_demo.py', '--output', str(output)]):
                 build_demo.main()
             self.assertEqual({p.name for p in output.iterdir()}, {*build_demo.FILES, '.nojekyll'})
-            for name in ('index.html', 'install.html'):
+            for name in ('index.html', 'install.html', 'welcome.html'):
                 html = (output / name).read_text()
                 self.assertIn('data-mode="demo"', html)
                 self.assertIn('data-static="true"', html)

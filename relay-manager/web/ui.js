@@ -32,7 +32,7 @@
     if (!response.ok) throw new Error(data.detail || '操作未完成，请稍后重试。');
     return data;
   }
-  async function copy(field) { try { await navigator.clipboard.writeText(field.value); return true; } catch { field.focus();field.select();return false; } }
+  async function copy(field) { try { await navigator.clipboard.writeText(field.value); return true; } catch { field.hidden=false;field.focus();field.select();return false; } }
   function downloadLauncher(command) {
     if (!/^powershell\.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand [A-Za-z0-9+/=]+$/.test(command)) throw new Error('安装信息无效，请联系管理员重新发送邀请。');
     const blob=new Blob(['@echo off\r\n'+command+'\r\n'],{type:'application/octet-stream'});

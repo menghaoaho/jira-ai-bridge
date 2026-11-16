@@ -1,4 +1,4 @@
-name: Relay preview checks
+name: Relay release checks
 on:
   push:
     paths: ['relay-manager/**', '.github/workflows/relay-checks.yml']
@@ -26,6 +26,6 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Windows PowerShell 5.1 script and config checks
+      - name: Windows PowerShell 5.1 installer, permissions and config checks
         shell: powershell
         run: .\relay-manager\test_windows.ps1

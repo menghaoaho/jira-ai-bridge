@@ -4,10 +4,10 @@
   const demo=document.documentElement.dataset.mode==='demo';
   let report={devices:[],commands:[]}, view='overview', busy=false, selected=null, sequence=0;
   const now=()=>Date.now()/1000;
-  const demoState={admin:'演示管理员',version:'1.1.0',devices:[
-    {id:'demo-day',label:'研发同事 · 白班',hostname:'TEST-DAY',status:'正常转发',enabled:1,last_seen:now(),health_reason:'演示：已确认这台电脑可以访问 Jira',version:'1.1.0',created:now()-86400},
-    {id:'demo-night',label:'测试同事 · 晚班',hostname:'TEST-NIGHT',status:'正常转发',enabled:1,last_seen:now(),health_reason:'演示：已确认这台电脑可以访问 Jira',version:'1.1.0',created:now()-86400},
-    {id:'demo-backup',label:'备用电脑',hostname:'TEST-BACKUP',status:'离线',enabled:1,last_seen:now()-9000,health_reason:'请确认电脑已开机、唤醒并连接公司网络。',version:'1.1.0',created:now()-172800},
+  const demoState={admin:'演示管理员',version:'1.2.0',devices:[
+    {id:'demo-day',label:'研发同事 · 白班',hostname:'TEST-DAY',status:'正常转发',enabled:1,last_seen:now(),health_reason:'演示：已确认这台电脑可以访问 Jira',version:'1.2.0',created:now()-86400},
+    {id:'demo-night',label:'测试同事 · 晚班',hostname:'TEST-NIGHT',status:'正常转发',enabled:1,last_seen:now(),health_reason:'演示：已确认这台电脑可以访问 Jira',version:'1.2.0',created:now()-86400},
+    {id:'demo-backup',label:'备用电脑',hostname:'TEST-BACKUP',status:'离线',enabled:1,last_seen:now()-9000,health_reason:'请确认电脑已开机、唤醒并连接公司网络。',version:'1.2.0',created:now()-172800},
     {id:'demo-old',label:'旧电脑',hostname:'TEST-OLD',status:'已停用',enabled:0,last_seen:now()-172800,health_reason:'已被管理员停用',version:'1.0.0',created:now()-172800}],
     commands:[{id:'demo-invite-1',label:'新同事的办公电脑',status:'待安装',expires:now()+86400},{id:'demo-invite-2',label:'晚班备用电脑',status:'待安装',expires:now()+86400}]};
   const adminApi=(path,body)=>request('/relay-admin/api/'+path,body,true);
@@ -46,6 +46,7 @@
     $('device-total').textContent=query||view==='devices'?'显示 '+shown.length+' 台电脑':'共 '+report.devices.length+' 台已登记电脑';
   }
   function render() {
+    if(!demo&&report.welcome_url){$('user-entry').href=report.welcome_url;$('user-entry').hidden=false;}
     $('account').textContent=report.admin||'管理员';$('version').textContent='连接助手 '+(report.version||'');
     $('stat-online').textContent=report.devices.filter(d=>state(d)[1]==='online').length;
     $('stat-attention').textContent=report.devices.filter(d=>state(d)[1]==='attention').length;
@@ -71,6 +72,9 @@
     $('copy-link').replaceChildren(icon('copy'),document.createTextNode('复制链接，发给同事'));$('share-caption').textContent=data.label+' · '+date(data.expires)+' 前有效';$('share-url').value=data.share_url;$('command').value=data.command;
     const link=new URL(data.share_url);if(link.hostname!==location.hostname || (!demo&&link.protocol!=='https:') || !link.pathname.endsWith('/relay-start/')&&!(demo&&link.pathname.endsWith('/install.html')))throw new Error('邀请地址与当前站点不一致，请联系管理员。');
     $('open-install').href=data.share_url;$('share-dialog').showModal();
+    $('agent-instructions').value=data.agent_instructions||'';$('copy-agent').disabled=!demo&&!data.agent_instructions;
+    $('copy-agent').textContent='复制指令，交给 Agent 安装';$('copy-message').textContent='复制给同事的使用说明';
+    $('share-message').value='请在需要安装的 Windows 公司电脑上打开这个专属链接：\n'+data.share_url+'\n\n点击“下载一键安装文件”，下载后双击打开，确认 Windows 系统授权。中文窗口会自动检查和安装，显示“连接成功”后即可关闭。\n请保持公司网络连接；如果只是查看 Jira，无需安装。遇到问题时点击“复制检查结果”，把结果发给我即可。';
   }
   function openDevice(device) {
     selected=device;$('detail-name').textContent=device.label;$('detail-host').textContent=device.hostname||'等待电脑登记';$('detail-error').hidden=true;
@@ -80,7 +84,7 @@
   }
   document.querySelectorAll('.invite-button').forEach(button=>button.addEventListener('click',()=>{$('create-error').hidden=true;$('invite-dialog').showModal();}));
   document.querySelectorAll('.close-dialog').forEach(button=>button.addEventListener('click',()=>button.closest('dialog').close()));
-  $('share-dialog').addEventListener('close',()=>{$('share-url').value='';$('command').value='';$('open-install').removeAttribute('href');});
+  $('share-dialog').addEventListener('close',()=>{for(const id of ['share-url','command','agent-instructions','share-message'])$(id).value='';$('agent-instructions').hidden=true;$('share-message').hidden=true;$('open-install').removeAttribute('href');});
   $('create').addEventListener('submit',async event=>{
     event.preventDefault();if(busy)return;const form=event.currentTarget,button=form.querySelector('[type=submit]');busy=true;button.disabled=true;$('create-error').hidden=true;
     try{const data=new FormData(form);const result=await api('commands',{label:data.get('label'),hours:Number(data.get('hours'))});$('invite-dialog').close();showShare(result);form.reset();await refresh();}catch(error){$('create-error').textContent=error.message;$('create-error').hidden=false;}finally{busy=false;button.disabled=false;}
@@ -92,8 +96,10 @@
   });
   $('copy-link').addEventListener('click',async()=>{const ok=await copy($('share-url'));$('copy-link').textContent=ok?'链接已复制，可发给同事':'请按 Ctrl+C（Mac 为 ⌘C）复制选中链接';});
   $('copy-command').addEventListener('click',async()=>{if(demo){note('当前是交互演示，不会生成实际安装授权。');return;}const ok=await copy($('command'));note(ok?'完整命令已复制。':'请按 Ctrl+C（Mac 为 ⌘C）复制选中命令。');});
+  $('copy-agent').addEventListener('click',async()=>{if(demo){note('演示不会生成安装授权，请使用正式控制台创建邀请。');return;}if(!$('agent-instructions').value)return;const ok=await copy($('agent-instructions'));$('copy-agent').textContent=ok?'已复制，发给同事的 Agent 即可':'请复制下方选中的完整指令';});
+  $('copy-message').addEventListener('click',async()=>{const ok=await copy($('share-message'));$('copy-message').textContent=ok?'已复制，可直接发给同事':'请复制下方选中的使用说明';});
   $('device-search').addEventListener('input',renderDevices);$('status-filter').addEventListener('change',renderDevices);$('refresh').addEventListener('click',()=>refresh().catch(error=>note(error.message,true)));window.addEventListener('hashchange',route);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!busy)refresh().catch(error=>note(error.message,true));});setInterval(()=>{if(!document.hidden&&!busy)refresh().catch(error=>note(error.message,true));},15000);
-  if(demo){$('demo-label').hidden=false;$('coworker-preview').hidden=false;$('coworker-preview').href=(document.documentElement.dataset.static==='true'?'install.html':'../relay-start/')+'#demo';}
+  if(demo){$('user-entry').hidden=false;$('user-entry').href=document.documentElement.dataset.static==='true'?'welcome.html':'/relay/';$('demo-label').hidden=false;$('coworker-preview').hidden=false;$('coworker-preview').href=(document.documentElement.dataset.static==='true'?'install.html':'../relay-start/')+'#demo';}
   icons();route();refresh().catch(error=>{note(error.message,true);$('devices-loading').textContent='暂时无法读取设备。请确认已登录管理员账号，再点击刷新。';$('connection-label').textContent='连接暂不可用';});
 })();

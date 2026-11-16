@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 $script:RelayRoot = Join-Path $env:ProgramFiles 'JiraRelay'
 $script:RelayData = Join-Path $env:ProgramData 'JiraRelay'
 $script:RelayTask = 'JiraRelaySupervisor'
-$script:RelayVersion = '1.1.0'
+$script:RelayVersion = '1.2.0'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Test-RelayAdmin {

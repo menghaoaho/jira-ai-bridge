@@ -8,8 +8,8 @@ const source = fs.readFileSync(path.join(__dirname, 'web/install.js'), 'utf8');
 const html = fs.readFileSync(path.join(__dirname, 'web/install.html'), 'utf8');
 const key = 'jira-relay-install-invitation';
 const code = 'a'.repeat(43);
-const ready = {label:'Test invitation', expires:Date.now()/1000+3600, status:'ready', command:'powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand YQ=='};
-const used = {...ready, status:'used', command:undefined, connection:'离线'};
+const ready = {label:'Test invitation', expires:Date.now()/1000+3600, status:'ready', command:'powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand YQ==',agent_instructions:'PRIVATE TEST AGENT INSTRUCTIONS'};
+const used = {...ready, status:'used', command:undefined, agent_instructions:undefined, connection:'离线'};
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
 async function page({hash='#'+code, storage=new Map(), mode='live', response=ready, storageError=false, ignoreWrites=false}={}) {
@@ -20,13 +20,14 @@ async function page({hash='#'+code, storage=new Map(), mode='live', response=rea
       classList:{toggle(){},add(){}}, addEventListener:(name,fn)=>handlers.set(name,fn),
       fire:name=>handlers.get(name)?.({preventDefault(){}}), replaceChildren(){}, setAttribute(){},removeAttribute(){}});
   }
-  const calls = [], downloads = [], savedUrls = [];
+  const calls = [], downloads = [], savedUrls = [], copies = [];
   const location = {hash,pathname:'/relay-start/',search:'?view=install',href:'https://relay.example/relay-start/?view=install'+hash};
   const context = {URL,location,navigator:{userAgent:'Windows NT 10.0; Win64; x64'},
     document:{documentElement:{dataset:{mode}},hidden:false,addEventListener(){}},
     window:{addEventListener(){},RelayUI:{$:id=>{assert(nodes.has(id),'Missing HTML element: '+id);return nodes.get(id);},
       icons(){},icon(){return {firstChild:{}};},date:String,
       request:async(route,body)=>{calls.push({route,body});return typeof response==='function'?response():response;},
+      copy:async field=>{copies.push(field.value);return true;},
       downloadLauncher:command=>downloads.push(command)}},
     sessionStorage:{getItem(name){if(storageError)throw Error('storage unavailable');return storage.get(name)??null;},
       setItem(name,value){if(storageError)throw Error('storage unavailable');if(!ignoreWrites)storage.set(name,value);},
@@ -35,7 +36,7 @@ async function page({hash='#'+code, storage=new Map(), mode='live', response=rea
   Object.defineProperty(context,'localStorage',{get(){throw Error('Persistent storage must not be accessed');}});
   vm.runInNewContext(source,context,{filename:'install.js'});
   await settle();
-  return {nodes,calls,downloads,savedUrls,location,storage,click:async id=>{nodes.get(id).fire('click');await settle();}};
+  return {nodes,calls,downloads,savedUrls,copies,location,storage,click:async id=>{nodes.get(id).fire('click');await settle();}};
 }
 
 test('a live invitation survives refresh after the fragment is removed',async()=>{
@@ -123,4 +124,22 @@ test('a response without an installation command never reaches the launcher',asy
   await result.click('download-again');
   assert.equal(result.nodes.get('download').disabled,true);
   assert.deepEqual(result.downloads,[]);
+});
+
+test('agent instructions are copied only for a valid unused live invitation',async()=>{
+  const result=await page();
+  await result.click('copy-install-agent');
+  assert.deepEqual(result.copies,[ready.agent_instructions]);
+  for(const options of [{response:used},{mode:'demo'}]){
+    const blocked=await page(options);await blocked.click('copy-install-agent');
+    assert.deepEqual(blocked.copies,[]);
+  }
+});
+
+test('a shared check result excludes the invitation, command and Agent instructions',async()=>{
+  const result=await page({response:used});
+  await result.click('copy-diagnostics');
+  assert.equal(result.copies.length,1);
+  for(const value of [code,ready.command,ready.agent_instructions])assert(!result.copies[0].includes(value));
+  assert.match(result.copies[0],/Jira连接助手检查结果/);
 });

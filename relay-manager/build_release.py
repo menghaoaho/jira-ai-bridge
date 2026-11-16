@@ -102,7 +102,7 @@ def main():
     if any(x.lower() in files['nginx/nginx.exe'].lower() for x in (b'vcruntime140.dll', b'msvcp140.dll')):
         raise RuntimeError('new runtime dependency requires a reviewed redistributable')
     files['licenses/vendor-sources.json'] = json.dumps(provenance, indent=2).encode()
-    manifest = {'version': '1.1.0', 'frp': FRP, 'nginx': NGINX,
+    manifest = {'version': '1.2.0', 'frp': FRP, 'nginx': NGINX,
                 'files': {name: sha(content) for name, content in sorted(files.items())}}
     files['manifest.json'] = json.dumps(manifest, indent=2).encode()
     bundle = OUT / 'bundle.zip'
@@ -116,7 +116,7 @@ def main():
             member = next(x for x in archive.getmembers() if x.name.endswith('/' + target.name))
             target.write_bytes(archive.extractfile(member).read())
             target.chmod(0o755)
-    result = {'version': '1.1.0', 'bundle_sha256': sha(bundle.read_bytes()),
+    result = {'version': '1.2.0', 'bundle_sha256': sha(bundle.read_bytes()),
               'bootstrap_sha256': sha((ROOT / 'windows' / 'install.ps1').read_bytes()),
               'frps_sha256': sha((OUT / 'frps').read_bytes()), 'bundle_bytes': bundle.stat().st_size}
     (OUT / 'release.json').write_text(json.dumps(result, indent=2) + '\n')

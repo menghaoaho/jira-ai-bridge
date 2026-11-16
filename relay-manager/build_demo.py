@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-FILES = ('index.html', 'install.html', 'app.js', 'install.js', 'ui.js', 'style.css')
+FILES = ('index.html', 'install.html', 'app.js', 'install.js', 'ui.js', 'style.css', 'welcome.html', 'welcome.js')
 
 
 def main():

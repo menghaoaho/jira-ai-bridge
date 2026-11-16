@@ -1,13 +1,14 @@
-# Jira-AI-Bridge 🚀
+# Jira-AI-Bridge
 
-**[打开 Jira 连接助手产品演示](https://menghaoaho.github.io/jira-ai-bridge/)** · [同事安装引导](https://menghaoaho.github.io/jira-ai-bridge/install.html#demo)
+[Jira 连接助手使用说明](relay-manager/README.md) · [交给 Agent 安装](relay-manager/AGENT_INSTALL.md) · [验证记录](relay-manager/VALIDATION.md)
 
-新增图形控制台：查看电脑状态、创建安装邀请、分享专属链接、筛选和停用设备。同事按三步页面引导操作，默认无需阅读命令或配置文件。网页演示使用模拟数据，正式云端接入仍待上线。
+1.2.0 将公司 Windows 电脑接入流程做成中文一键安装窗口：自动检查、安装组件、设置后台运行，并等待云端确认。管理员用网页控制台创建邀请、查看设备和单独停用；同事也可以把专属指令交给电脑上的 Agent 完成安装。只查看 Jira 和工作台的同事或领导直接从使用入口进入，无需安装。
 
-> **新增：转发电脑管理与一条命令安装（预览版）**
-> [下载页面](https://github.com/menghaoaho/jira-ai-bridge/releases/tag/relay-v1.1.0-preview.1) · [管理员与同事使用说明](relay-manager/README.md) · [测试记录](relay-manager/VALIDATION.md)
-> 支持限时单台安装授权、Windows自检安装、开机后台运行、多机转发和管理员停用设备。当前为可部署模板，云端上线与真实Windows验收仍待；以下原版部署说明作为历史方案保留。
+**正式云端接入尚未上线，真实公司 Windows 安装验收待完成。** 公开仓库分发源码与示例组件，实际安装需要管理员在正式服务中创建专属邀请。
 
+[控制台交互演示](https://menghaoaho.github.io/jira-ai-bridge/) · [使用入口演示](https://menghaoaho.github.io/jira-ai-bridge/welcome.html) · [安装流程演示](https://menghaoaho.github.io/jira-ai-bridge/install.html#demo)
+
+以下为原版部署实践，现行连接助手请以上面的使用说明为准。
 
 > **企业内网 Jira 外网安全穿透网关与 AI Agent 智能化调度实践指南**  
 > 支持零 VPN 外网流畅访问 Web、多机高可用热备负载均衡、双重门卫安全隔离、AI JQL 轻量投影调度（毫秒级拉取）。

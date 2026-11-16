@@ -31,7 +31,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from auth import admin_identity, NoRedirect
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 ID_RE = re.compile(r'^[0-9a-f]{32}$')
 SECRET_RE = re.compile(r'^[0-9a-f]{64}$')
 CODE_RE = re.compile(r'^[A-Za-z0-9_-]{43}$')
@@ -328,24 +328,36 @@ class Application:
                 'relay_ca': Path(s['relay_ca']).read_text(), 'relay_server_name': 'jira-relay',
                 'bundle': s['bundle'], 'bundle_sha256': s['bundle_sha256']}
 
-    def command(self, invitation):
+    def command(self, invitation, unattended=False):
         s = self.settings
         sha = hashlib.sha256((ROOT / 'windows' / 'install.ps1').read_bytes()).hexdigest()
         script_url = s['origin'] + '/relay-install/install.ps1'
         # Only generated HTTPS origins and hex/base64url values are interpolated.
         script = ("& {$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; "
                   "$p=Join-Path $env:TEMP ('jira-relay-'+[guid]::NewGuid().ToString('N')+'.ps1'); "
-                  f"Invoke-WebRequest -UseBasicParsing '{script_url}' -OutFile $p; "
+                  f"Invoke-WebRequest -UseBasicParsing '{script_url}' -OutFile $p -TimeoutSec 90 -MaximumRedirection 0; "
                   f"if((Get-FileHash $p -Algorithm SHA256).Hash -ne '{sha}'){{Remove-Item $p; throw 'Installation file verification failed'}}; "
-                  f"& $p -EnrollmentToken '{invitation['code']}' -Origin '{s['origin']}' -ExpectedScriptHash '{sha}'" + "}")
+                  f"& $p -EnrollmentToken '{invitation['code']}' -Origin '{s['origin']}' -ExpectedScriptHash '{sha}'"
+                  + (' -Unattended' if unattended else '') + "; exit $LASTEXITCODE}")
         # EncodedCommand avoids the outer PowerShell expanding $p/$env before
         # the child runs, and works identically when pasted into cmd.exe.
         encoded = base64.b64encode(script.encode('utf-16le')).decode()
         return 'powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ' + encoded
 
+    def agent_instructions(self, invitation):
+        return ('请帮我在当前这台公司 Windows 电脑上安装并验证 Jira 连接助手。\n'
+                '先检查系统为 Windows 10/11、Intel/AMD 64位，且能访问公司 Jira；其他系统请停止并说明。\n'
+                '运行下面由管理员签发的专属安装命令。安装会自动检查网络、核对文件摘要、设置后台运行；遇到 Windows 系统授权时让我确认。\n'
+                '请使用能等待进程结束并取得退出码的执行方式，完整等待安装结束。退出码0才表示云端已确认连接成功；2表示已安装但连接待检查；其他退出码表示未完成。\n'
+                '失败时保留本机进度、检查原因，不要反复消耗邀请、另建身份或改动其他隧道。不能关闭防护、跳过证书或摘要校验。\n'
+                '此命令含仅供这台电脑使用的一次性授权，请勿公开、上传、写入仓库或贴进最终回复。不要读取或输出本机设备秘密。\n\n'
+                + self.command(invitation, unattended=True)
+                + '\n\n最后只告诉我：安装是否完成、云端是否确认、下一步怎么做。只有退出码0才能说“连接成功”。')
+
     def invitation_result(self, invitation):
         return {key: value for key, value in {
             **invitation, 'command': self.command(invitation),
+            'agent_instructions': self.agent_instructions(invitation),
             'share_url': self.settings['origin'] + '/relay-start/#' + invitation['code']
         }.items() if key != 'code'}
 
@@ -508,6 +520,10 @@ class Handler(BaseHTTPRequestHandler):
             raise APIError(404, 'not_found')
         if self.command in ('GET', 'HEAD'):
             public_assets = {
+                '/relay/': ('welcome.html', 'text/html'),
+                '/relay/welcome.js': ('welcome.js', 'text/javascript'),
+                '/relay/ui.js': ('ui.js', 'text/javascript'),
+                '/relay/style.css': ('style.css', 'text/css'),
                 '/relay-start/': ('install.html', 'text/html'),
                 '/relay-start/install.js': ('install.js', 'text/javascript'),
                 '/relay-start/ui.js': ('ui.js', 'text/javascript'),
@@ -557,6 +573,7 @@ class Handler(BaseHTTPRequestHandler):
             state = app.store.invitation(invitation.get('code'))
             if state['status'] == 'ready':
                 state['command'] = app.command({'code': invitation['code']})
+                state['agent_instructions'] = app.agent_instructions({'code': invitation['code']})
             return self.reply(200, state)
         if self.command == 'POST' and path == PUBLIC_PREFIX + '/enroll':
             peer = clean(self.headers.get('X-Jira-Client-IP', 'loopback'), 64)
@@ -598,7 +615,8 @@ class Handler(BaseHTTPRequestHandler):
             raise APIError(status, {401: '请先登录工作台管理员账号', 403: '仅管理员可以管理转发电脑', 503: '账号验证暂时不可用'}[status])
         if self.command in ('GET', 'HEAD'):
             if path == ADMIN_PREFIX + '/api/report':
-                return self.reply(200, {**app.store.report(), 'admin': clean(user.get('display_name') or user['username'])})
+                return self.reply(200, {**app.store.report(), 'admin': clean(user.get('display_name') or user['username']),
+                                        'welcome_url': app.settings['origin'] + '/relay/'})
             assets = {ADMIN_PREFIX + '/': ('index.html', 'text/html'),
                       ADMIN_PREFIX + '/app.js': ('app.js', 'text/javascript'),
                       ADMIN_PREFIX + '/ui.js': ('ui.js', 'text/javascript'),

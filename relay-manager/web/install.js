@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  const {$,icons,icon,request,date,downloadLauncher}=window.RelayUI;
+  const {$,icons,icon,request,date,downloadLauncher,copy}=window.RelayUI;
   const demo=document.documentElement.dataset.mode==='demo';
   const codePattern=/^[A-Za-z0-9_-]{43}$/, storageKey='jira-relay-install-invitation', retentionMs=30*60*1000;
   let code=location.hash.slice(1), invitation=null, stage=1, downloaded=false, demoTicks=0, timer=null, checking=false, pollCount=0;
@@ -57,6 +57,9 @@
     invitation=data;
     const used=!demo&&data.status==='used';
     $('download').hidden=used;$('download-again').hidden=used;
+    $('copy-install-agent').hidden=used;$('install-agent-text').value=used?'':data.agent_instructions||'';
+    $('copy-install-agent').disabled=!canDownload()||(!demo&&!data.agent_instructions);
+    if(used){$('install-agent-text').hidden=true;$('agent-copy-result').hidden=true;}
     $('download').disabled=!canDownload()||(!windows&&!demo);$('download-again').disabled=!canDownload()||(!windows&&!demo);
     $('used-invitation-note').hidden=!used;
     $('back-install').textContent=used?'查看原安装文件说明':'返回安装说明';
@@ -72,17 +75,26 @@
     try{if(!demo)downloadLauncher(invitation.command);downloaded=true;go(2);}catch(e){error(e.message);go(1);}
   }
   $('download').addEventListener('click',download);$('download-again').addEventListener('click',download);
+  $('copy-install-agent').addEventListener('click',async()=>{
+    if(demo){$('agent-copy-result').textContent='演示不会生成安装授权，请使用管理员发来的正式邀请。';$('agent-copy-result').hidden=false;return;}
+    if(!canDownload()||!invitation.agent_instructions)return;
+    const ok=await copy($('install-agent-text'));$('agent-copy-result').textContent=ok?'已复制，粘贴给这台电脑上的 Agent 即可。':'请复制下方选中的完整指令。';$('agent-copy-result').hidden=false;
+  });
+  $('copy-diagnostics').addEventListener('click',async()=>{
+    $('diagnostics-text').value='Jira连接助手检查结果\n状态：'+$('status-title').textContent+'\n说明：'+$('status-detail').textContent+'\n时间：'+new Date().toLocaleString('zh-CN');
+    const ok=await copy($('diagnostics-text'));$('diagnostics-copy-result').textContent=ok?'已复制，可发给管理员。内容不含安装邀请和设备凭据。':'请复制下方选中的检查结果。';$('diagnostics-copy-result').hidden=false;
+  });
   $('check-connection').addEventListener('click',startStatus);$('retry-status').addEventListener('click',startStatus);$('back-install').addEventListener('click',()=>{clearInterval(timer);timer=null;go(2);});
   $('help-toggle').addEventListener('click',event=>{event.preventDefault();$('install-help-panel').hidden=!$('install-help-panel').hidden;if(!$('install-help-panel').hidden)$('install-help-panel').scrollIntoView({behavior:'smooth',block:'start'});});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&stage===3&&timer)poll();});window.addEventListener('pagehide',()=>clearInterval(timer));
   $('os-label').textContent=windows?'Windows 电脑':'请在 Windows 电脑上安装';$('os-note').textContent=windows?'支持 Windows 10 / 11，安装时会进一步检查64位系统。':'这台设备可以查看引导，实际安装需要 Windows 公司电脑。';$('os-state').textContent=windows?'已识别':'需要换电脑';$('os-state').classList.toggle('good',windows);
   $('open-jira').href=new URL('/',location.href).href;
-  if(demo){$('demo-label').hidden=false;$('back-console').hidden=false;$('back-console').href=document.documentElement.dataset.static==='true'?'index.html':'../relay-admin/';$('demo-download-note').hidden=false;$('download-message').textContent='演示：安装文件准备好后，会看到以下步骤';$('open-jira').textContent='演示已完成';$('open-jira').removeAttribute('href');$('open-jira').setAttribute('aria-disabled','true');}
+  if(demo){$('install-home').href=document.documentElement.dataset.static==='true'?'welcome.html':'/relay/';$('demo-label').hidden=false;$('back-console').hidden=false;$('back-console').href=document.documentElement.dataset.static==='true'?'index.html':'../relay-admin/';$('demo-download-note').hidden=false;$('download-message').textContent='演示：安装文件准备好后，会看到以下步骤';$('open-jira').textContent='演示已完成';$('open-jira').removeAttribute('href');$('open-jira').setAttribute('aria-disabled','true');}
   icons();
   getInvitation().then(data=>{
     updateInvitation(data);$('invite-label').textContent=data.label;$('invite-expiry').textContent='邀请有效期至 '+date(data.expires);$('invite-state').textContent=data.status==='ready'?'邀请有效':'已使用';$('invite-state').classList.add('good');
     if(data.status==='used'){startStatus();return;}
-    $('download-label').textContent=demo?'体验安装引导':windows?'下载专属安装文件':'请在 Windows 电脑上打开此链接';
+    $('download-label').textContent=demo?'体验安装引导':windows?'下载一键安装文件':'请在 Windows 电脑上打开此链接';
     if(demo)$('download-note').textContent='点击体验完整流程，不会下载或安装软件。';
   }).catch(e=>{$('invite-label').textContent='暂时无法使用这份邀请';$('invite-expiry').textContent='请联系管理员';$('invite-state').textContent='未通过';$('download-label').textContent='需要有效的安装邀请';error(e.message);});
 })();

@@ -193,6 +193,13 @@ class RelayTests(unittest.TestCase):
             self.app.stop.set(); release_slow.set(); worker.join(3)
         self.assertFalse(worker.is_alive())
 
+    def test_admin_report_links_to_public_welcome_on_distinct_origin(self):
+        self.assertNotEqual(self.app.settings['origin'], self.app.settings['admin_origin'])
+        status, raw, _ = self.request(self.server(), '/relay-admin/api/report', headers={
+            'X-Jira-Relay-Surface': 'admin', 'Cookie': 'admin=yes'})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)['welcome_url'], 'https://relay.example/relay/')
+
     def test_admin_auth_surface_and_csrf(self):
         server = self.server()
         path = '/relay-admin/api/report'
@@ -265,6 +272,7 @@ class RelayTests(unittest.TestCase):
         used = json.loads(self.request(server, path, 'POST', {'code': invite['code']})[1])
         self.assertEqual(used['status'], 'used')
         self.assertNotIn('command', used)
+        self.assertNotIn('agent_instructions', used)
         for private in (row['id'], secret, row['hostname']):
             self.assertNotIn(private, json.dumps(used))
         self.store.disable(row['id'], 'owner')
@@ -293,6 +301,34 @@ class RelayTests(unittest.TestCase):
         share = json.loads(raw)['share_url']
         self.assertTrue(share.startswith(self.app.settings['origin'] + '/relay-start/#'))
         self.assertNotIn('?', share)
+
+    def test_agent_install_is_pinned_unattended_and_preserves_exit_code(self):
+        invite = self.store.create_code('Agent测试', 24, 'owner')
+        normal = self.app.command(invite)
+        agent = self.app.agent_instructions(invite)
+        prefix = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand '
+        encoded = agent.split(prefix, 1)[1].splitlines()[0]
+        script = base64.b64decode(encoded).decode('utf-16le')
+        self.assertIn(' -Unattended', script)
+        self.assertIn('exit $LASTEXITCODE', script)
+        self.assertIn('Get-FileHash', script)
+        self.assertIn(invite['code'], script)
+        self.assertNotIn(' -Unattended', base64.b64decode(normal.removeprefix(prefix)).decode('utf-16le'))
+        self.assertIn('退出码0', agent)
+        self.assertIn('2表示已安装但连接待检查', agent)
+        server = self.server()
+        status, raw, _ = self.request(server, '/relay-api/v1/invitation', 'POST', {'code':invite['code']})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)['agent_instructions'], agent)
+
+    def test_use_entry_is_public_without_invitation_or_management_data(self):
+        server = self.server()
+        for path in ('/relay/', '/relay/welcome.js', '/relay/ui.js', '/relay/style.css'):
+            status, raw, headers = self.request(server, path)
+            self.assertEqual(status, 200)
+            self.assertEqual(headers['Cache-Control'], 'no-store')
+            self.assertNotIn(b'data-mode="demo"', raw)
+        self.assertEqual(self.request(server, '/relay/api/report')[0], 404)
 
     def test_hook_failure_is_fail_closed(self):
         server = self.server(True)
